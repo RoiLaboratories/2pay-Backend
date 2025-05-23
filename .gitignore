@@ -1,0 +1,10 @@
+# Create .gitignore file with these contents:
+node_modules/
+.env
+dist/
+coverage/
+coverage.json
+typechain/
+typechain-types/
+cache/
+artifacts/
