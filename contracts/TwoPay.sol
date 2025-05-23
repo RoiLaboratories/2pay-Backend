@@ -17,6 +17,8 @@ contract TwoPay is Ownable, ReentrancyGuard {
     }
     
     mapping(uint256 => Pool) public pools;
+    // Track if an address has contributed to a specific tier
+    mapping(address => mapping(uint256 => bool)) public hasContributed;
     address public platformWallet;
     
     event ContributionAdded(address indexed contributor, uint256 tier, uint256 batch);
@@ -34,6 +36,8 @@ contract TwoPay is Ownable, ReentrancyGuard {
     
     function contribute(uint256 tier) external nonReentrant {
         require(tier >= 1 && tier <= 3, "Invalid tier");
+        require(!hasContributed[msg.sender][tier], "Already contributed to this tier");
+        
         Pool storage pool = pools[tier];
         
         // Transfer USDC from contributor
@@ -41,6 +45,9 @@ contract TwoPay is Ownable, ReentrancyGuard {
             usdc.transferFrom(msg.sender, address(this), pool.contributionAmount),
             "USDC transfer failed"
         );
+        
+        // Mark address as having contributed to this tier
+        hasContributed[msg.sender][tier] = true;
         
         // Add contributor to current batch
         pool.contributors.push(msg.sender);
@@ -64,9 +71,20 @@ contract TwoPay is Ownable, ReentrancyGuard {
         if (payoutIndex < 5) {
             address contributor = pool.batches[pool.currentBatch][payoutIndex];
             
-            // Calculate amounts (60% to contributor, 40% to platform)
-            uint256 contributorAmount = (pool.contributionAmount * 3) / 2; // $30
-            uint256 platformAmount = pool.contributionAmount; // $20
+            // Calculate amounts based on tier
+            uint256 contributorAmount;
+            uint256 platformAmount;
+            
+            if (tier == 1) { // $10 tier
+                contributorAmount = 30 * 10**6; // $30
+                platformAmount = 20 * 10**6;   // $20
+            } else if (tier == 2) { // $50 tier
+                contributorAmount = 150 * 10**6; // $150
+                platformAmount = 100 * 10**6;   // $100
+            } else { // $500 tier
+                contributorAmount = 1500 * 10**6; // $1500
+                platformAmount = 1000 * 10**6;   // $1000
+            }
             
             // Transfer USDC
             require(
