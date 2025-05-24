@@ -66,43 +66,55 @@ contract TwoPay is Ownable, ReentrancyGuard {
         // Store current batch contributors
         pool.batches[pool.currentBatch] = pool.contributors;
         
-        // Process payout for the next contributor in queue
-        uint256 payoutIndex = pool.batchPayoutIndex[pool.currentBatch];
-        if (payoutIndex < 5) {
-            address contributor = pool.batches[pool.currentBatch][payoutIndex];
+        // If this is the first batch, process first payout immediately
+        if (pool.currentBatch == 0) {
+            address firstContributor = pool.batches[0][0];
+            _processPayout(firstContributor, tier);
+            pool.batchPayoutIndex[0] = 1;
+        } else {
+            // For subsequent batches, process next payout from previous batch
+            uint256 previousBatch = pool.currentBatch - 1;
+            uint256 payoutIndex = pool.batchPayoutIndex[previousBatch];
             
-            // Calculate amounts based on tier
-            uint256 contributorAmount;
-            uint256 platformAmount;
-            
-            if (tier == 1) { // $10 tier
-                contributorAmount = 30 * 10**6; // $30
-                platformAmount = 20 * 10**6;   // $20
-            } else if (tier == 2) { // $50 tier
-                contributorAmount = 150 * 10**6; // $150
-                platformAmount = 100 * 10**6;   // $100
-            } else { // $500 tier
-                contributorAmount = 1500 * 10**6; // $1500
-                platformAmount = 1000 * 10**6;   // $1000
+            if (payoutIndex < 5) {
+                address nextContributor = pool.batches[previousBatch][payoutIndex];
+                _processPayout(nextContributor, tier);
+                pool.batchPayoutIndex[previousBatch]++;
             }
-            
-            // Transfer USDC
-            require(
-                usdc.transfer(contributor, contributorAmount),
-                "Contributor payout failed"
-            );
-            require(
-                usdc.transfer(platformWallet, platformAmount),
-                "Platform payout failed"
-            );
-            
-            pool.batchPayoutIndex[pool.currentBatch]++;
-            emit PayoutProcessed(contributor, contributorAmount, tier, pool.currentBatch);
         }
         
         // Reset contributors array and increment batch
         delete pool.contributors;
         pool.currentBatch++;
+    }
+    
+    function _processPayout(address contributor, uint256 tier) private {
+        // Calculate amounts based on tier
+        uint256 contributorAmount;
+        uint256 platformAmount;
+        
+        if (tier == 1) { // $10 tier
+            contributorAmount = 30 * 10**6; // $30
+            platformAmount = 20 * 10**6;   // $20
+        } else if (tier == 2) { // $50 tier
+            contributorAmount = 150 * 10**6; // $150
+            platformAmount = 100 * 10**6;   // $100
+        } else { // $500 tier
+            contributorAmount = 1500 * 10**6; // $1500
+            platformAmount = 1000 * 10**6;   // $1000
+        }
+        
+        // Transfer USDC
+        require(
+            usdc.transfer(contributor, contributorAmount),
+            "Contributor payout failed"
+        );
+        require(
+            usdc.transfer(platformWallet, platformAmount),
+            "Platform payout failed"
+        );
+        
+        emit PayoutProcessed(contributor, contributorAmount, tier, pools[tier].currentBatch);
     }
     
     function getPoolStatus(uint256 tier) external view returns (

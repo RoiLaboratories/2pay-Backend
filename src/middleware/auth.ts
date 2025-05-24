@@ -42,7 +42,7 @@ export const authMiddleware = async (
       id: user.id
     };
 
-    next();
+    return next();
   } catch (error) {
     logger.error('Authentication error:', error);
     res.status(401).json({ error: 'Invalid token' });

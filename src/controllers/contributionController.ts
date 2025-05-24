@@ -8,6 +8,11 @@ import { AppError } from '../middleware/errorHandler';
 const TWO_PAY_ADDRESS = process.env.TWO_PAY_CONTRACT_ADDRESS!;
 const USDC_ADDRESS = process.env.USDC_ADDRESS!;
 
+// USDC ABI for transfer event
+const USDC_ABI = [
+  "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
+
 export const contributionController = {
   async registerContribution(req: AuthenticatedRequest, res: Response) {
     try {
@@ -31,12 +36,49 @@ export const contributionController = {
         throw new AppError(400, 'Invalid transaction destination');
       }
 
+      // Verify USDC transfer
+      const receipt = await provider.getTransactionReceipt(txHash);
+      if (!receipt) {
+        throw new AppError(400, 'Transaction receipt not found');
+      }
+
+      const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
+      const transferEvents = await usdcContract.queryFilter(
+        usdcContract.filters.Transfer(userAddress, TWO_PAY_ADDRESS),
+        receipt.blockNumber,
+        receipt.blockNumber
+      );
+
+      if (transferEvents.length === 0) {
+        throw new AppError(400, 'No USDC transfer found in transaction');
+      }
+
+      // Verify transfer amount matches tier
+      const expectedAmount = tier === 1 ? 10000000n : tier === 2 ? 50000000n : 500000000n;
+      const transferAmount = (transferEvents[0] as ethers.EventLog).args[2];
+      if (transferAmount !== expectedAmount) {
+        throw new AppError(400, 'Transfer amount does not match tier requirement');
+      }
+
+      // Get pool information
+      const { data: pool, error: poolError } = await supabase
+        .from('pools')
+        .select('id, current_batch')
+        .eq('tier', tier)
+        .single();
+
+      if (poolError || !pool) {
+        throw new AppError(500, 'Failed to fetch pool information');
+      }
+
       // Store contribution in Supabase
       const { data, error } = await supabase
         .from('contributions')
         .insert({
           user_address: userAddress,
-          tier,
+          pool_id: pool.id,
+          batch_number: pool.current_batch,
+          amount: expectedAmount,
           transaction_hash: txHash,
           status: 'pending'
         })
@@ -78,7 +120,15 @@ export const contributionController = {
 
       const { data, error } = await supabase
         .from('contributions')
-        .select('*')
+        .select(`
+          *,
+          pools:tier,
+          payouts!inner(
+            amount,
+            batch_number,
+            created_at
+          )
+        `)
         .eq('user_address', address)
         .order('created_at', { ascending: false });
 
