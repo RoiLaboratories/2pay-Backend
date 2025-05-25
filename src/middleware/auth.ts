@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
-import { supabase } from '../app';
 import { logger } from '../config/logger';
 
 export interface AuthenticatedRequest extends Request {
@@ -25,21 +24,11 @@ export const authMiddleware = async (
 
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { address: string };
-    
-    // Get user from Supabase
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('wallet_address', decoded.address)
-      .single();
 
-    if (error || !user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
+    // No Supabase user lookup needed; just attach address to req.user
     req.user = {
       address: decoded.address,
-      id: user.id
+      id: decoded.address // Use address as id for compatibility
     };
 
     return next();
@@ -61,4 +50,4 @@ export const verifyWalletSignature = async (
     logger.error('Signature verification error:', error);
     return false;
   }
-}; 
+};

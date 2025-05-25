@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 // import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
-import { supabase } from '../app';         // adjust import path as needed
+// import { supabase } from '../app';         // adjust import path as needed
 import { logger } from '../config/logger'; // your logger, optional
 import { verifyWalletSignature } from '../middleware/auth'; // your helper
 
@@ -43,23 +43,10 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    // Lookup user in Supabase by wallet address
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('wallet_address', address.toLowerCase())
-      .single();
-
-    if (error || !user) {
-      logger.error(`User not found for address: ${address}`);
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Generate JWT token with user info
+    // Generate JWT token with wallet address only
     const token = jwt.sign(
       {
         address: address.toLowerCase(),
-        userId: user.id,
       },
       process.env.JWT_SECRET!,
       { expiresIn: '1h' }

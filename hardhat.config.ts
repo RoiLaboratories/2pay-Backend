@@ -21,16 +21,17 @@ const config: HardhatUserConfig = {
       url: process.env.BASE_RPC_URL || "",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
     },
-    baseGoerli: {
-      url: process.env.BASE_GOERLI_RPC_URL || "",
+    baseSepolia: {
+      url: process.env.BASE_SEPOLIA_RPC_URL || "",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
     }
   },
   etherscan: {
     apiKey: {
-      base: process.env.BASE_SCAN_API_KEY || ""
+      base: process.env.BASE_SCAN_API_KEY || "",
+      baseSepolia: process.env.BASE_SEPOLIA_SCAN_API_KEY || ""
     }
   }
 };
 
-export default config; 
+export default config;
