@@ -24,10 +24,11 @@ const getConfig = () => {
     };
 };
 
-// USDC ABI for transfer event
+// Import contract ABIs
 const USDC_ABI = [
     "event Transfer(address indexed from, address indexed to, uint256 value)"
 ];
+import TWO_PAY_ABI from '../abi/TWO_PAY_ABI.json';
 
 
 export const contributionController = {
@@ -132,12 +133,14 @@ export const contributionController = {
             });            // Log the JWT token for debugging
             const token = (req.headers.authorization || '').split(' ')[1];
             logger.debug('JWT token present:', !!token);
-            
-            // Log the full request data for debugging
+              // Get current batch number from contract
+            const contract = new ethers.Contract(config.contractAddress, TWO_PAY_ABI, provider);
+            const [currentBatch] = await contract.getPoolStatus(tier);
+
             const insertData = {
                 user_address: userAddress.toLowerCase(),
                 pool_id: pool.id,
-                batch_number: pool.current_batch,
+                batch_number: Number(currentBatch),
                 amount: amountNumber,
                 transaction_hash: txHash,
                 status: 'pending',

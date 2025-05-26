@@ -222,6 +222,75 @@ export class EventListener {
                 }
             );
 
+            // Process PayoutProcessed events
+            const processPayoutEvent = async (
+                contributor: string,
+                amount: bigint,
+                tier: bigint,
+                batch: bigint,
+                event: any
+            ) => {
+                console.log('Processing payout event:', {
+                    contributor: contributor.toLowerCase(),
+                    amount: amount.toString(),
+                    tier: Number(tier),
+                    batch: Number(batch),
+                    txHash: event.transactionHash
+                });
+
+                // Update contribution status to 'paid'
+                const { error: updateError } = await supabase
+                    .from('contributions')
+                    .update({
+                        status: 'paid',
+                        paid_at: new Date().toISOString(),
+                        payout_tx_hash: event.transactionHash
+                    })
+                    .eq('user_address', contributor.toLowerCase())
+                    .eq('tier', Number(tier))
+                    .eq('batch_number', Number(batch));
+
+                if (updateError) {
+                    console.error('Failed to update contribution status:', updateError);
+                    return;
+                }
+
+                // Record the payout
+                const { error: payoutError } = await supabase
+                    .from('payouts')
+                    .insert({
+                        user_address: contributor.toLowerCase(),
+                        tier: Number(tier),
+                        batch_number: Number(batch),
+                        amount: Number(amount),
+                        transaction_hash: event.transactionHash,
+                        block_number: event.blockNumber,
+                        processed_at: new Date().toISOString()
+                    });
+
+                if (payoutError) {
+                    console.error('Failed to record payout:', payoutError);
+                    return;
+                }
+
+                console.log('Successfully processed payout for:', {
+                    contributor: contributor.toLowerCase(),
+                    tier: Number(tier),
+                    batch: Number(batch)
+                });
+            };
+
+            this.contract.on(
+                this.contract.filters.PayoutProcessed(),
+                async (contributor: string, amount: bigint, tier: bigint, batch: bigint, event: any) => {
+                    try {
+                        await processPayoutEvent(contributor, amount, tier, batch, event);
+                    } catch (error) {
+                        console.error('Error processing payout event:', error);
+                    }
+                }
+            );
+
             // Keep track of listener status
             this.isListening = true;
             console.log('Event listener started successfully');
