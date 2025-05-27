@@ -72,6 +72,11 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Health check endpoint
+app.get('/', (_req, res) => {
+  res.status(200).json({ status: 'ok', message: '2Pay API is running' });
+});
+
 // Routes
 app.use('/api', authMiddleware, apiRoutes);
 app.use('/api/events', authMiddleware, eventRoutes);
