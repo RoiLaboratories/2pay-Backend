@@ -5,15 +5,15 @@
       "src": "src/app.ts",
       "use": "@vercel/node"
     }
-  ],
-  "routes": [
+  ],  "routes": [
     {
-      "src": "/api/(.*)",      "dest": "dist/app.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "src": "/(.*)",
+      "dest": "src/app.ts",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       "headers": {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "https://www.2pay.site",
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
       }
     }
