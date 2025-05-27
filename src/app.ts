@@ -29,6 +29,9 @@ console.log('[ENV DEBUG] Full process.env dump:', process.env);
 
 const app = express();
 
+// Trust proxy (Vercel) to get correct client IP for rate limiting
+app.set('trust proxy', 1);
+
 // Initialize Supabase client with service role key for backend operations
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!process.env.SUPABASE_URL || !supabaseKey) {
