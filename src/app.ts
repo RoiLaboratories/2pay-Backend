@@ -76,28 +76,25 @@ app.use('/api/events', authMiddleware, eventRoutes);
 // Error handling
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-
-// Start the server and polling service
-app.listen(PORT, async () => {
-  logger.info(`Server running on port ${PORT}`);
+// Start event polling service in production
+if (process.env.NODE_ENV === 'production') {
   try {
-    await eventPollingService.start();
+    eventPollingService.start();
     logger.info('Event polling service started successfully');
   } catch (error) {
     logger.error('Failed to start event polling service:', error);
   }
-});
+}
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received. Shutting down gracefully...');
-  eventPollingService.stop();
-  process.exit(0);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+  });
+}
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT received. Shutting down gracefully...');
-  eventPollingService.stop();
+// Export the Express app as the default handler for Vercel
+export default app;
   process.exit(0);
 });
