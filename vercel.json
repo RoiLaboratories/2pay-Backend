@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/app.js",
+      "src": "src/app.ts",
       "use": "@vercel/node"
     }
   ],
@@ -10,10 +10,11 @@
     {
       "src": "/api/(.*)",
       "dest": "dist/app.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      "headers": {
-        "Access-Control-Allow-Origin": "https://2pay.site",
-        "Access-Control-Allow-Credentials": "true"
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],      "headers": {
+        "Access-Control-Allow-Origin": "https://www.2pay.site",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
       }
     }
   ],
