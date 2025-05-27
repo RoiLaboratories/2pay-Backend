@@ -64,12 +64,16 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
-app.use('/api/auth', authRoutes);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100 // limit each IP to 100 requests per windowMs
 });
+
+// Auth routes (before rate limiting)
+app.use('/auth', authRoutes); // unauthenticated auth routes
+app.use('/api/auth', authRoutes); // also support the /api prefix for backward compatibility
 app.use(limiter);
 
 // Handle favicon requests
