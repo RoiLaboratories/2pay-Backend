@@ -72,6 +72,10 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Handle favicon requests
+app.get('/favicon.ico', (_req: express.Request, res: express.Response) => res.status(204).end());
+app.get('/favicon.png', (_req: express.Request, res: express.Response) => res.status(204).end());
+
 // Health check endpoint
 app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', message: '2Pay API is running' });
