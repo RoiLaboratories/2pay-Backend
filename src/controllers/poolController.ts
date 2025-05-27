@@ -6,17 +6,20 @@ import { supabase } from '../app';
 import { logger } from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
 import fs from 'fs';
+import { getNetworkConfig } from '../config/network';
 
 // Load the appropriate ABI based on environment
 const getContractABI = () => {
-    const isTestnet = process.env.NODE_ENV !== 'production';
-    const contractFileName = isTestnet ? 'TwoPayTestnet.sol/TwoPayTestnet.json' : 'TwoPay.sol/TwoPay.json';
+    const networkConfig = getNetworkConfig();
+    const contractFileName = networkConfig.networkName === 'Base Sepolia' 
+        ? 'TwoPayTestnet.sol/TwoPayTestnet.json' 
+        : 'TwoPay.sol/TwoPay.json';
     const contractPath = path.resolve(__dirname, '../../artifacts/contracts/', contractFileName);
     console.log('[DEBUG] Loading contract from:', contractPath);
     
     try {
         const contractJson = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
-        console.log('[DEBUG] ABI loaded successfully for', isTestnet ? 'testnet' : 'mainnet');
+        console.log('[DEBUG] ABI loaded successfully for', networkConfig.networkName);
         return contractJson.abi;
     } catch (error) {
         console.error('[ERROR] Failed to load ABI:', error);
@@ -26,18 +29,14 @@ const getContractABI = () => {
 
 const TWO_PAY_ABI = getContractABI();
 
-// Create a provider with specific network configuration
+// Create a provider with network configuration
 const getProvider = async () => {
-    // Use different providers for testnet and mainnet
-    const isTestnet = process.env.NODE_ENV !== 'production';
+    const networkConfig = getNetworkConfig();
     const provider = new ethers.JsonRpcProvider(
-        isTestnet ? process.env.BASE_SEPOLIA_RPC_URL : process.env.BASE_MAINNET_RPC_URL,
-        isTestnet ? {
-            chainId: 84532,
-            name: 'base-sepolia'
-        } : {
-            chainId: 8453,
-            name: 'base'
+        networkConfig.rpcUrl,
+        {
+            chainId: networkConfig.chainId,
+            name: networkConfig.networkName.toLowerCase().replace(' ', '-')
         }
     );
     
@@ -61,12 +60,10 @@ export const poolController = {
             }
 
             // Debug logging for contract setup
-            const isTestnet = process.env.NODE_ENV !== 'production';
-            const contractAddress = isTestnet 
-                ? process.env.TWO_PAY_TESTNET_ADDRESS 
-                : process.env.TWO_PAY_MAINNET_ADDRESS;
+            const networkConfig = getNetworkConfig();
+            const contractAddress = networkConfig.contractAddress;
             console.log('[DEBUG] Contract setup check:');
-            console.log('- Environment:', isTestnet ? 'testnet' : 'mainnet');
+            console.log('- Environment:', networkConfig.networkName);
             console.log('- Contract Address:', contractAddress);
             console.log('- Is Valid Address:', contractAddress ? ethers.isAddress(contractAddress) : false);
             console.log('- ABI Available:', TWO_PAY_ABI ? 'Yes' : 'No');
@@ -250,37 +247,30 @@ export const poolController = {
             }
 
             // Setup contract interaction with environment awareness
-            const isTestnet = process.env.NODE_ENV !== 'production';
-            const contractAddress = isTestnet 
-                ? process.env.TWO_PAY_TESTNET_ADDRESS 
-                : process.env.TWO_PAY_MAINNET_ADDRESS;
+            const networkConfig = getNetworkConfig();
+            const contractAddress = networkConfig.contractAddress;
 
             if (!contractAddress || !ethers.isAddress(contractAddress)) {
                 logger.error('Contract address is missing or invalid:', {
                     address: contractAddress,
-                    environment: isTestnet ? 'testnet' : 'mainnet'
+                    environment: networkConfig.networkName
                 });
                 throw new AppError(500, 'Contract address is missing or invalid');
             }
 
             const provider = new ethers.JsonRpcProvider(
-                isTestnet ? process.env.BASE_SEPOLIA_RPC_URL : process.env.BASE_MAINNET_RPC_URL,
-                isTestnet ? {
-                    chainId: 84532,
-                    name: 'base-sepolia'
-                } : {
-                    chainId: 8453,
-                    name: 'base'
+                networkConfig.rpcUrl,
+                {
+                    chainId: networkConfig.chainId,
+                    name: networkConfig.networkName.toLowerCase().replace(' ', '-')
                 }
             );
 
             // Use appropriate private key for environment
-            const privateKey = isTestnet 
-                ? process.env.TESTNET_ADMIN_PRIVATE_KEY 
-                : process.env.MAINNET_ADMIN_PRIVATE_KEY;
+            const privateKey = networkConfig.adminPrivateKey;
 
             if (!privateKey) {
-                throw new AppError(500, `Admin private key missing for ${isTestnet ? 'testnet' : 'mainnet'}`);
+                throw new AppError(500, `Admin private key missing for ${networkConfig.networkName}`);
             }
 
             const wallet = new ethers.Wallet(privateKey, provider);
@@ -294,7 +284,7 @@ export const poolController = {
                     status: 'pending',
                     tier: tierNum,
                     initiated_by: req.user?.address,
-                    environment: isTestnet ? 'testnet' : 'mainnet'
+                    environment: networkConfig.networkName
                 })
                 .select()
                 .single();
@@ -304,13 +294,13 @@ export const poolController = {
                 throw new AppError(500, 'Failed to record transaction');
             }
 
-            logger.info(`Starting payout transaction for tier ${tierNum} on ${isTestnet ? 'testnet' : 'mainnet'}`);
+            logger.info(`Starting payout transaction for tier ${tierNum} on ${networkConfig.networkName}`);
             const tx = await contract.processPayout(tierNum);
             logger.info(`Transaction sent: ${tx.hash}`);
 
             // Wait for transaction confirmation
             const receipt = await tx.wait();
-            logger.info(`Transaction confirmed: ${receipt.hash} on ${isTestnet ? 'testnet' : 'mainnet'}`);
+            logger.info(`Transaction confirmed: ${receipt.hash} on ${networkConfig.networkName}`);
 
             // Update transaction record
             const { error: updateTxError } = await supabase
@@ -320,7 +310,7 @@ export const poolController = {
                     tx_hash: receipt.hash,
                     block_number: receipt.blockNumber,
                     confirmed_at: new Date().toISOString(),
-                    network: isTestnet ? 'base-sepolia' : 'base'
+                    network: networkConfig.networkName.toLowerCase().replace(' ', '-')
                 })
                 .eq('id', txRecord.id);
 
@@ -337,7 +327,7 @@ export const poolController = {
                     status: 'processed',
                     processed_at: new Date().toISOString(),
                     tx_hash: receipt.hash,
-                    network: isTestnet ? 'base-sepolia' : 'base'
+                    network: networkConfig.networkName.toLowerCase().replace(' ', '-')
                 })
                 .in('id', contributionIds);
 
@@ -354,7 +344,7 @@ export const poolController = {
                     currentBatch: pool.current_batch,
                     payoutIndex: pool.payout_index,
                     processedContributions: contributionIds.length,
-                    network: isTestnet ? 'base-sepolia' : 'base'
+                    network: networkConfig.networkName.toLowerCase().replace(' ', '-')
                 }
             });
         } catch (error: any) {
@@ -362,13 +352,13 @@ export const poolController = {
             
             // Include transaction hash and network in error response if available
             const txHash = error?.transaction?.hash;
-            const isTestnet = process.env.NODE_ENV !== 'production';
+            const networkConfig = getNetworkConfig();
             
             if (error instanceof AppError) {
                 res.status(error.statusCode).json({
                     status: 'error',
                     message: error.message,
-                    network: isTestnet ? 'base-sepolia' : 'base',
+                    network: networkConfig.networkName.toLowerCase().replace(' ', '-'),
                     ...(txHash && { transactionHash: txHash })
                 });
             } else {
@@ -376,7 +366,7 @@ export const poolController = {
                 res.status(500).json({
                     status: 'error',
                     message: errorMessage,
-                    network: isTestnet ? 'base-sepolia' : 'base',
+                    network: networkConfig.networkName.toLowerCase().replace(' ', '-'),
                     ...(txHash && { transactionHash: txHash })
                 });
             }

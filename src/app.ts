@@ -11,7 +11,8 @@ import { logger } from './config/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import apiRoutes from './routes/api';
-import { EventListener } from './services/eventListener';
+import eventRoutes from './routes/eventRoutes';
+import { EventPollingService } from './services/eventPollingService';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -45,8 +46,8 @@ export const supabase = createClient(
   }
 );
 
-// Initialize event listener
-const eventListener = new EventListener();
+// Initialize event polling service
+const eventPollingService = new EventPollingService();
 
 // Middleware
 app.use(helmet());
@@ -68,32 +69,33 @@ app.use(limiter);
 
 // Routes
 app.use('/api', authMiddleware, apiRoutes);
+app.use('/api/events', authMiddleware, eventRoutes);
 
 // Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
-// Start the server and event listener
+// Start the server and polling service
 app.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT}`);
   try {
-    await eventListener.start();
-    logger.info('Event listener started successfully');
+    await eventPollingService.start();
+    logger.info('Event polling service started successfully');
   } catch (error) {
-    logger.error('Failed to start event listener:', error);
+    logger.error('Failed to start event polling service:', error);
   }
 });
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received. Shutting down gracefully...');
-  eventListener.stop();
+  eventPollingService.stop();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received. Shutting down gracefully...');
-  eventListener.stop();
+  eventPollingService.stop();
   process.exit(0);
 });

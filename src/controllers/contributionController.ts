@@ -4,25 +4,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { supabase } from '../app';
 import { logger } from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
-
-// Get environment-specific configuration
-const getConfig = () => {
-    const isTestnet = process.env.NODE_ENV !== 'production';
-    return {
-        contractAddress: isTestnet 
-            ? process.env.TWO_PAY_TESTNET_ADDRESS 
-            : process.env.TWO_PAY_MAINNET_ADDRESS,
-        usdcAddress: isTestnet
-            ? process.env.USDC_TESTNET_ADDRESS
-            : process.env.USDC_MAINNET_ADDRESS,
-        rpcUrl: isTestnet
-            ? process.env.BASE_SEPOLIA_RPC_URL
-            : process.env.BASE_MAINNET_RPC_URL,
-        network: isTestnet
-            ? { chainId: 84532, name: 'base-sepolia' }
-            : { chainId: 8453, name: 'base' }
-    };
-};
+import { getNetworkConfig } from '../config/network';
 
 // Import contract ABIs
 const USDC_ABI = [
@@ -30,30 +12,35 @@ const USDC_ABI = [
 ];
 import TWO_PAY_ABI from '../abi/TWO_PAY_ABI.json';
 
-
 export const contributionController = {
     async registerContribution(req: AuthenticatedRequest, res: Response) {
         try {
             const { tier, txHash } = req.body;
             const userAddress = req.user?.address;
-            const config = getConfig();
+            const networkConfig = getNetworkConfig();
 
             if (!userAddress) {
                 throw new AppError(401, 'User not authenticated');
             }
 
-            if (!config.contractAddress || !ethers.isAddress(config.contractAddress)) {
-                logger.error('Contract address is missing or invalid:', config.contractAddress);
+            if (!networkConfig.contractAddress || !ethers.isAddress(networkConfig.contractAddress)) {
+                logger.error('Contract address is missing or invalid:', networkConfig.contractAddress);
                 throw new AppError(500, 'Contract configuration error');
             }
 
-            if (!config.usdcAddress || !ethers.isAddress(config.usdcAddress)) {
-                logger.error('USDC address is missing or invalid:', config.usdcAddress);
+            if (!networkConfig.usdcAddress || !ethers.isAddress(networkConfig.usdcAddress)) {
+                logger.error('USDC address is missing or invalid:', networkConfig.usdcAddress);
                 throw new AppError(500, 'USDC configuration error');
             }
 
             // Verify transaction on-chain
-            const provider = new ethers.JsonRpcProvider(config.rpcUrl, config.network);
+            const provider = new ethers.JsonRpcProvider(
+                networkConfig.rpcUrl,
+                {
+                    chainId: networkConfig.chainId,
+                    name: networkConfig.networkName.toLowerCase().replace(' ', '-')
+                }
+            );
             const tx = await provider.getTransaction(txHash);
             
             if (!tx) {
@@ -61,7 +48,7 @@ export const contributionController = {
             }
 
             // Verify transaction is to our contract
-            if (tx.to?.toLowerCase() !== config.contractAddress.toLowerCase()) {
+            if (tx.to?.toLowerCase() !== networkConfig.contractAddress.toLowerCase()) {
                 throw new AppError(400, 'Invalid transaction destination');
             }
 
@@ -71,9 +58,9 @@ export const contributionController = {
                 throw new AppError(400, 'Transaction receipt not found');
             }
 
-            const usdcContract = new ethers.Contract(config.usdcAddress, USDC_ABI, provider);
+            const usdcContract = new ethers.Contract(networkConfig.usdcAddress, USDC_ABI, provider);
             const transferEvents = await usdcContract.queryFilter(
-                usdcContract.filters.Transfer(userAddress, config.contractAddress),
+                usdcContract.filters.Transfer(userAddress, networkConfig.contractAddress),
                 receipt.blockNumber,
                 receipt.blockNumber
             );
@@ -129,12 +116,11 @@ export const contributionController = {
                 batchNumber: pool.current_batch,
                 amount: amountNumber,
                 txHash,
-                network: process.env.NODE_ENV !== 'production' ? 'base-sepolia' : 'base'
-            });            // Log the JWT token for debugging
-            const token = (req.headers.authorization || '').split(' ')[1];
-            logger.debug('JWT token present:', !!token);
-              // Get current batch number from contract
-            const contract = new ethers.Contract(config.contractAddress, TWO_PAY_ABI, provider);
+                network: networkConfig.networkName.toLowerCase().replace(' ', '-')
+            });
+
+            // Get current batch number from contract
+            const contract = new ethers.Contract(networkConfig.contractAddress, TWO_PAY_ABI, provider);
             const [currentBatch] = await contract.getPoolStatus(tier);
 
             const insertData = {
@@ -144,8 +130,8 @@ export const contributionController = {
                 amount: amountNumber,
                 transaction_hash: txHash,
                 status: 'pending',
-                network: process.env.NODE_ENV !== 'production' ? 'base-sepolia' : 'base',
-                environment: process.env.NODE_ENV !== 'production' ? 'testnet' : 'mainnet'
+                network: networkConfig.networkName.toLowerCase().replace(' ', '-'),
+                environment: networkConfig.networkName
             };
             
             logger.debug('Attempting database insertion with:', {
@@ -174,8 +160,8 @@ export const contributionController = {
             // Serialize response data
             const responseData = {
                 ...contributionData,
-                amount: contributionData.amount.toString(), // Convert number to string for JSON
-                network: process.env.NODE_ENV !== 'production' ? 'base-sepolia' : 'base'
+                amount: contributionData.amount.toString(),
+                network: networkConfig.networkName.toLowerCase().replace(' ', '-')
             };
 
             res.status(201).json({
@@ -202,6 +188,7 @@ export const contributionController = {
         try {
             const { address } = req.params;
             const userAddress = req.user?.address;
+            const networkConfig = getNetworkConfig();
 
             if (!userAddress || userAddress.toLowerCase() !== address.toLowerCase()) {
                 throw new AppError(403, 'Unauthorized to view these contributions');
@@ -229,7 +216,7 @@ export const contributionController = {
             res.json({
                 status: 'success',
                 data,
-                network: process.env.NODE_ENV !== 'production' ? 'base-sepolia' : 'base'
+                network: networkConfig.networkName.toLowerCase().replace(' ', '-')
             });
         } catch (error) {
             logger.error('Get user contributions error:', error);

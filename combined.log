@@ -3536,3 +3536,6 @@
 {"level":"info","message":"::1 - - [27/May/2025:03:01:22 +0000] \"GET /api/pools/3 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\"","timestamp":"2025-05-27T03:01:22.822Z"}
 {"level":"info","message":"::1 - - [27/May/2025:03:01:22 +0000] \"GET /api/pools/1 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\"","timestamp":"2025-05-27T03:01:22.839Z"}
 {"level":"info","message":"::1 - - [27/May/2025:03:01:23 +0000] \"GET /api/pools/2 HTTP/1.1\" 304 - \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\"","timestamp":"2025-05-27T03:01:23.095Z"}
+{"level":"info","message":"Server running on port 3000","timestamp":"2025-05-27T08:30:50.729Z"}
+{"level":"info","message":"Event listener started successfully","timestamp":"2025-05-27T08:30:52.750Z"}
+{"level":"info","message":"::1 - - [27/May/2025:08:37:32 +0000] \"POST /api/auth/nonce HTTP/1.1\" 200 31 \"http://localhost:5173/\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\"","timestamp":"2025-05-27T08:37:32.365Z"}

@@ -2,11 +2,14 @@
   "name": "2pay-backend",
   "version": "1.0.0",
   "description": "Backend for 2pay decentralized contribution platform",
-  "main": "dist/app.js",
-  "scripts": {
+  "main": "dist/app.js",  "scripts": {
     "build": "tsc",
     "start": "node dist/app.js",
-    "dev": "ts-node-dev src/app.ts"
+    "dev": "ts-node-dev src/app.ts",
+    "vercel-build": "tsc && cp -r src/abi dist/",
+    "lint": "eslint . --ext .ts",
+    "test": "jest",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
