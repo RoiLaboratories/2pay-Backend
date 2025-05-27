@@ -88,14 +88,28 @@ app.use('/api/events', authMiddleware, eventRoutes);
 // Error handling
 app.use(errorHandler);
 
-// Start event polling service in production
+// Start event polling service in production with retries
 if (process.env.NODE_ENV === 'production') {
-  try {
-    eventPollingService.start();
-    logger.info('Event polling service started successfully');
-  } catch (error) {
-    logger.error('Failed to start event polling service:', error);
-  }
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 5000; // 5 seconds
+
+  const startEventPolling = async (retryCount = 0) => {
+    try {
+      await eventPollingService.start();
+      logger.info('Event polling service started successfully');
+    } catch (error) {
+      logger.error('Failed to start event polling service:', error);
+      
+      if (retryCount < MAX_RETRIES) {
+        logger.info(`Retrying event polling service start in ${RETRY_DELAY/1000}s (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        setTimeout(() => startEventPolling(retryCount + 1), RETRY_DELAY);
+      } else {
+        logger.error('Max retries reached for event polling service startup');
+      }
+    }
+  };
+
+  startEventPolling();
 }
 
 // For local development

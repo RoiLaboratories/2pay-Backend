@@ -10,8 +10,12 @@ export interface NetworkConfig {
 export const getNetworkConfig = (): NetworkConfig => {
   const isTestnet = process.env.NETWORK === 'testnet';
   
+  // Fallback to public RPC if custom RPC URLs are not provided
+  const baseSepoliaRpc = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
+  const baseMainnetRpc = process.env.BASE_MAINNET_RPC_URL || 'https://mainnet.base.org';
+  
   return {
-    rpcUrl: isTestnet ? process.env.BASE_SEPOLIA_RPC_URL! : process.env.BASE_MAINNET_RPC_URL!,
+    rpcUrl: isTestnet ? baseSepoliaRpc : baseMainnetRpc,
     contractAddress: isTestnet ? process.env.TWO_PAY_TESTNET_ADDRESS! : process.env.TWO_PAY_MAINNET_ADDRESS!,
     usdcAddress: isTestnet ? process.env.USDC_TESTNET_ADDRESS! : process.env.USDC_MAINNET_ADDRESS!,
     adminPrivateKey: isTestnet ? process.env.TESTNET_ADMIN_PRIVATE_KEY! : process.env.MAINNET_ADMIN_PRIVATE_KEY!,
