@@ -8,19 +8,20 @@ import { AppError } from '../middleware/errorHandler';
 import fs from 'fs';
 import { getNetworkConfig } from '../config/network';
 
-// Load the appropriate ABI based on environment
+// Load the contract ABI from the dedicated ABI file
 const getContractABI = () => {
-    const networkConfig = getNetworkConfig();
-    const contractFileName = networkConfig.networkName === 'Base Sepolia' 
-        ? 'TwoPayTestnet.sol/TwoPayTestnet.json' 
-        : 'TwoPay.sol/TwoPay.json';
-    const contractPath = path.resolve(__dirname, '../../artifacts/contracts/', contractFileName);
-    console.log('[DEBUG] Loading contract from:', contractPath);
-    
     try {
-        const contractJson = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
-        console.log('[DEBUG] ABI loaded successfully for', networkConfig.networkName);
-        return contractJson.abi;
+        const abiPath = path.resolve(__dirname, '../abi/TWO_PAY_ABI.json');
+        console.log('[DEBUG] Loading ABI from:', abiPath);
+        
+        if (!fs.existsSync(abiPath)) {
+            console.error('[ERROR] ABI file not found at:', abiPath);
+            return null;
+        }
+
+        const contractAbi = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+        console.log('[DEBUG] ABI loaded successfully');
+        return contractAbi;
     } catch (error) {
         console.error('[ERROR] Failed to load ABI:', error);
         return null;
@@ -32,6 +33,12 @@ const TWO_PAY_ABI = getContractABI();
 // Create a provider with network configuration
 const getProvider = async () => {
     const networkConfig = getNetworkConfig();
+    logger.info('Initializing provider with config:', {
+        rpcUrl: networkConfig.rpcUrl,
+        chainId: networkConfig.chainId,
+        networkName: networkConfig.networkName
+    });
+
     const provider = new ethers.JsonRpcProvider(
         networkConfig.rpcUrl,
         {
@@ -41,11 +48,20 @@ const getProvider = async () => {
     );
     
     try {
-        await provider.getNetwork();
+        const network = await provider.getNetwork();
+        logger.info('Successfully connected to network:', {
+            chainId: network.chainId,
+            name: network.name
+        });
         return provider;
     } catch (error) {
-        console.error('[ERROR] Failed to connect to provider:', error);
-        throw new Error('Failed to connect to network');
+        logger.error('Failed to connect to provider:', {
+            error: error.message,
+            code: error.code,
+            rpcUrl: networkConfig.rpcUrl,
+            chainId: networkConfig.chainId
+        });
+        throw new AppError(500, `Failed to connect to network: ${error.message}`);
     }
 };
 
@@ -62,18 +78,21 @@ export const poolController = {
             // Debug logging for contract setup
             const networkConfig = getNetworkConfig();
             const contractAddress = networkConfig.contractAddress;
-            console.log('[DEBUG] Contract setup check:');
-            console.log('- Environment:', networkConfig.networkName);
-            console.log('- Contract Address:', contractAddress);
-            console.log('- Is Valid Address:', contractAddress ? ethers.isAddress(contractAddress) : false);
-            console.log('- ABI Available:', TWO_PAY_ABI ? 'Yes' : 'No');
+            
+            logger.info('Contract setup check:', {
+                environment: networkConfig.networkName,
+                contractAddress,
+                isValidAddress: contractAddress ? ethers.isAddress(contractAddress) : false,
+                abiAvailable: TWO_PAY_ABI ? true : false,
+                rpcUrl: networkConfig.rpcUrl
+            });
 
             if (!contractAddress || !ethers.isAddress(contractAddress)) {
-                throw new AppError(500, 'Contract address is missing or invalid');
+                throw new AppError(500, `Contract address is missing or invalid: ${contractAddress}`);
             }
 
             if (!TWO_PAY_ABI) {
-                throw new AppError(500, 'Contract ABI is missing or invalid');
+                throw new AppError(500, 'Contract ABI could not be loaded. Check the ABI file.');
             }
 
             console.log('[DEBUG] Connecting to network...');
