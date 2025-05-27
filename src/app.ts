@@ -53,9 +53,15 @@ const eventPollingService = new EventPollingService();
 app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://2pay.site', 'https://www.2pay.site']
+    ? [
+        'https://2pay.site',
+        'https://www.2pay.site',
+        'https://2pay-backend.vercel.app'
+      ]
     : ['http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
