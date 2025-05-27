@@ -4,11 +4,9 @@
   "description": "Backend for 2pay decentralized contribution platform",
   "main": "dist/app.js",
   "scripts": {
-    "start": "node dist/app.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "build": "tsc",
-    "test": "jest",
-    "lint": "eslint . --ext .ts"
+    "start": "node dist/app.js",
+    "dev": "ts-node-dev src/app.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

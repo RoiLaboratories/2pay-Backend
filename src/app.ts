@@ -52,8 +52,8 @@ const eventListener = new EventListener();
 app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL
-    : ['https://www.2pay.site', 'http://localhost:5173'],
+    ? ['https://2pay.site', 'https://www.2pay.site']
+    : ['http://localhost:5173', 'http://127.0.0.1:5173'],
   credentials: true
 }));
 app.use(express.json());
