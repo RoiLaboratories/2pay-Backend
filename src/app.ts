@@ -96,5 +96,3 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Export the Express app as the default handler for Vercel
 export default app;
-  process.exit(0);
-});
